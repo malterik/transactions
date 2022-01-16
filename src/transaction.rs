@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-enum TransactionType {
+pub enum TransactionType {
     Chargeback,
     Deposit,
     Dispute,
@@ -20,7 +20,7 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    fn new(r#type: TransactionType, client: u16, tx: u32, amount: Option<f32>) -> Result<Transaction> {
+   pub fn new(r#type: TransactionType, client: u16, tx: u32, amount: Option<f32>) -> Result<Transaction> {
         Ok(Transaction {
             r#type,
             client,
