@@ -13,9 +13,9 @@ impl InputParser {
     }
 
     pub fn parse_transactions(self, file: &str) -> Result<Vec<Transaction>> {
-        let mut file = File::open(file).unwrap();
+        let mut file = File::open(file)?;
         let mut input = String::new();
-        file.read_to_string(&mut input).unwrap();
+        file.read_to_string(&mut input)?;
         // Remove whitespaces
         input.retain(|c| c != ' ');
 
@@ -23,7 +23,7 @@ impl InputParser {
         let mut rdr = csv::Reader::from_reader(input.as_bytes());
 
         for result in rdr.deserialize() {
-            let transaction: Transaction = result.unwrap();
+            let transaction: Transaction = result?;
             output.push(transaction);
         }
 
