@@ -14,13 +14,13 @@ enum TransactionType {
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Transaction {
     r#type: TransactionType,
-    client: u32,
+    client: u16,
     tx: u32,
     amount: Option<f32>,
 }
 
 impl Transaction {
-    fn new(r#type: TransactionType, client: u32, tx: u32, amount: Option<f32>) -> Result<Transaction> {
+    fn new(r#type: TransactionType, client: u16, tx: u32, amount: Option<f32>) -> Result<Transaction> {
         Ok(Transaction {
             r#type,
             client,
