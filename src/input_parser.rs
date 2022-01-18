@@ -5,11 +5,6 @@ use std::{fs::File, io::Read, time::Instant};
 #[derive(Debug)]
 pub struct InputParser {}
 
-async fn remove_whitespace(mut input: String) -> Result<String> {
-    input.retain(|c| c != ' ');
-    Ok(input)
-}
-
 impl InputParser {
     pub fn new() -> Result<InputParser> {
         Ok(InputParser {})
@@ -20,17 +15,36 @@ impl InputParser {
         let mut file = File::open(file)?;
         let mut input = String::new();
         file.read_to_string(&mut input)?;
-        let lines: Vec<String> = input.lines().map(|l| l.to_string()).collect();
+        let mut lines: Vec<String> = input.lines().map(|l| l.to_string()).collect();
         println!("Data read {} milliseconds", now.elapsed().as_millis());
         now = Instant::now();
 
-        // Remove whitespaces
-        input = remove_whitespace(input).await.unwrap();
+        // let tasks : Vec<_> = lines.chunks_mut(2).map(|line| tokio::spawn(remove_whitespace(line))).collect();
+        let tasks: Vec<_> = lines
+            .into_iter()
+            .map(|mut line| {
+                tokio::spawn(async {
+                    line.retain(|c| c != ' ');
+                    line
+                })
+            })
+            .collect();
+
+        let mut lines = vec![];
+
+        for task in tasks {
+            lines.push(task.await.unwrap());
+        }
+
         println!(
             "Whitespaces removed {} milliseconds",
             now.elapsed().as_millis()
         );
         now = Instant::now();
+        let input = lines.join("\n");
+
+        // Remove whitespaces
+        // input = remove_whitespace(input).await.unwrap();
 
         let mut output = Vec::<Transaction>::new();
         let mut rdr = csv::Reader::from_reader(input.as_bytes());
