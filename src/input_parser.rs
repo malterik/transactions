@@ -16,21 +16,21 @@ impl InputParser {
         let mut file = File::open(file)?;
         let mut input = String::new();
         file.read_to_string(&mut input)?;
-        let mut lines: Vec<String> = input.lines().map(|l| l.to_string()).collect();
-        println!("Data read {} milliseconds", now.elapsed().as_millis());
-        now = Instant::now();
-
-        let mut chunked_lines: Vec<Vec<String>> = lines
-            .into_iter()
+        let chunked_lines: Vec<Vec<String>> = input
+            .lines()
+            .map(|l| l.to_string())
             .chunks(20000)
             .into_iter()
             .map(|chunk| chunk.collect())
             .collect();
+        println!("Data read {} milliseconds", now.elapsed().as_millis());
+        now = Instant::now();
+
         // let tasks : Vec<_> = lines.chunks_mut(2).map(|line| tokio::spawn(remove_whitespace(line))).collect();
 
         let tasks: Vec<_> = chunked_lines
             .into_iter()
-            .map(|mut chunk| {
+            .map(|chunk| {
                 tokio::spawn(async move {
                     chunk
                         .into_iter()
