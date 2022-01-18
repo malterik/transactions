@@ -10,3 +10,4 @@ anyhow = "1.0.52"
 csv = "1.1"
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1.15", features = ["full"] }
+itertools = "0.10.2"

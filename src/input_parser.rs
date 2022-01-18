@@ -1,5 +1,6 @@
 use crate::transaction::Transaction;
 use anyhow::Result;
+use itertools::Itertools;
 use std::{fs::File, io::Read, time::Instant};
 
 #[derive(Debug)]
@@ -19,32 +20,39 @@ impl InputParser {
         println!("Data read {} milliseconds", now.elapsed().as_millis());
         now = Instant::now();
 
-        // let tasks : Vec<_> = lines.chunks_mut(2).map(|line| tokio::spawn(remove_whitespace(line))).collect();
-        let tasks: Vec<_> = lines
+        let mut chunked_lines: Vec<Vec<String>> = lines
             .into_iter()
-            .map(|mut line| {
-                tokio::spawn(async {
-                    line.retain(|c| c != ' ');
-                    line
+            .chunks(20000)
+            .into_iter()
+            .map(|chunk| chunk.collect())
+            .collect();
+        // let tasks : Vec<_> = lines.chunks_mut(2).map(|line| tokio::spawn(remove_whitespace(line))).collect();
+
+        let tasks: Vec<_> = chunked_lines
+            .into_iter()
+            .map(|mut chunk| {
+                tokio::spawn(async move {
+                    chunk
+                        .into_iter()
+                        .map(|mut line| {
+                            line.retain(|c| c != ' ');
+                            line
+                        })
+                        .collect::<Vec<String>>()
                 })
             })
             .collect();
-
         let mut lines = vec![];
 
         for task in tasks {
-            lines.push(task.await.unwrap());
+            lines.extend(task.await.unwrap());
         }
-
+        let input = lines.join("\n");
         println!(
             "Whitespaces removed {} milliseconds",
             now.elapsed().as_millis()
         );
         now = Instant::now();
-        let input = lines.join("\n");
-
-        // Remove whitespaces
-        // input = remove_whitespace(input).await.unwrap();
 
         let mut output = Vec::<Transaction>::new();
         let mut rdr = csv::Reader::from_reader(input.as_bytes());
