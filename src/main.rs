@@ -5,12 +5,13 @@ use input_parser::InputParser;
 use std::env;
 
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args : Vec<String> = env::args().collect();
     if args.len() != 2 {
         println!("Please enter a csv file with transactions");
         return
     }
     let parser = InputParser::new().unwrap();
-    parser.parse_transactions(&args[1]).unwrap();
+    parser.parse_transactions(&args[1]).await.unwrap();
 }

@@ -1,21 +1,36 @@
 use crate::transaction::Transaction;
 use anyhow::Result;
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, time::Instant};
 
 #[derive(Debug)]
 pub struct InputParser {}
+
+async fn remove_whitespace(mut input: String) -> Result<String> {
+    input.retain(|c| c != ' ');
+    Ok(input)
+}
 
 impl InputParser {
     pub fn new() -> Result<InputParser> {
         Ok(InputParser {})
     }
 
-    pub fn parse_transactions(self, file: &str) -> Result<Vec<Transaction>> {
+    pub async fn parse_transactions(self, file: &str) -> Result<Vec<Transaction>> {
+        let mut now = Instant::now();
         let mut file = File::open(file)?;
         let mut input = String::new();
         file.read_to_string(&mut input)?;
+        let lines: Vec<String> = input.lines().map(|l| l.to_string()).collect();
+        println!("Data read {} milliseconds", now.elapsed().as_millis());
+        now = Instant::now();
+
         // Remove whitespaces
-        input.retain(|c| c != ' ');
+        input = remove_whitespace(input).await.unwrap();
+        println!(
+            "Whitespaces removed {} milliseconds",
+            now.elapsed().as_millis()
+        );
+        now = Instant::now();
 
         let mut output = Vec::<Transaction>::new();
         let mut rdr = csv::Reader::from_reader(input.as_bytes());
@@ -24,6 +39,10 @@ impl InputParser {
             let transaction: Transaction = result?;
             output.push(transaction);
         }
+        println!(
+            "Data deserialized {} milliseconds",
+            now.elapsed().as_millis()
+        );
 
         Ok(output)
     }
@@ -40,10 +59,10 @@ mod tests {
         matching == a.len() && matching == b.len()
     }
 
-    #[test]
-    fn test_deserialize_set1() {
+    #[tokio::test]
+    async fn test_deserialize_set1() {
         let parser = InputParser::new().unwrap();
-        let output = parser.parse_transactions("data/set1.csv").unwrap();
+        let output = parser.parse_transactions("data/set1.csv").await.unwrap();
 
         let mut expected_output = Vec::<Transaction>::new();
         expected_output.push(Transaction::new(TransactionType::Deposit, 1, 1, Some(1.0)).unwrap());
@@ -56,10 +75,10 @@ mod tests {
         assert!(do_vecs_match(&output, &expected_output));
     }
 
-    #[test]
-    fn test_deserialize_set2() {
+    #[tokio::test]
+    async fn test_deserialize_set2() {
         let parser = InputParser::new().unwrap();
-        let output = parser.parse_transactions("data/set2.csv").unwrap();
+        let output = parser.parse_transactions("data/set2.csv").await.unwrap();
 
         let mut expected_output = Vec::<Transaction>::new();
         expected_output.push(Transaction::new(TransactionType::Deposit, 1, 1, Some(1.0)).unwrap());
@@ -71,11 +90,12 @@ mod tests {
         assert!(do_vecs_match(&output, &expected_output));
     }
 
-    #[test]
-    fn test_deserialize_with_whitespace() {
+    #[tokio::test]
+    async fn test_deserialize_with_whitespace() {
         let parser = InputParser::new().unwrap();
         let output = parser
             .parse_transactions("data/set_whitespace.csv")
+            .await
             .unwrap();
 
         let mut expected_output = Vec::<Transaction>::new();
@@ -86,5 +106,13 @@ mod tests {
         expected_output.push(Transaction::new(TransactionType::Resolve, 1, 1, None).unwrap());
         expected_output.push(Transaction::new(TransactionType::Chargeback, 1, 1, None).unwrap());
         assert!(do_vecs_match(&output, &expected_output));
+    }
+
+    #[tokio::test]
+    async fn test_huge_file() {
+        let parser = InputParser::new().unwrap();
+        let output = parser.parse_transactions("data/huge.csv").await.unwrap();
+
+        assert_eq!(output.len(), 3000000);
     }
 }
