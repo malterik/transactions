@@ -16,51 +16,67 @@ impl InputParser {
         let mut file = File::open(file)?;
         let mut input = String::new();
         file.read_to_string(&mut input)?;
-        let chunked_lines: Vec<Vec<String>> = input
-            .lines()
-            .map(|l| l.to_string())
-            .chunks(20000)
-            .into_iter()
-            .map(|chunk| chunk.collect())
-            .collect();
         println!("Data read {} milliseconds", now.elapsed().as_millis());
         now = Instant::now();
 
-        // let tasks : Vec<_> = lines.chunks_mut(2).map(|line| tokio::spawn(remove_whitespace(line))).collect();
-
-        let tasks: Vec<_> = chunked_lines
+        let tasks: Vec<_> = input
+            .lines()
+            .skip(1)
+            .map(|l| l.to_string())
+            .chunks(500000)
             .into_iter()
-            .map(|chunk| {
+            .map(|chunk| chunk.collect())
+            .map(|chunk: Vec<String>| {
                 tokio::spawn(async move {
                     chunk
                         .into_iter()
                         .map(|mut line| {
                             line.retain(|c| c != ' ');
-                            line
+                            // println!("{}", line);
+                            let mut csv: String = String::from("type,client,tx,amount\n");
+                            if !line.starts_with("type") {
+                                csv.push_str(&line);
+                                let mut rdr = csv::Reader::from_reader(csv.as_bytes());
+                                // can only hold one transaction since it's only one line
+                                rdr.deserialize().next().unwrap().unwrap()
+                                // for result in rdr.deserialize() {
+                                //     let transaction: Transaction = result.unwrap();
+                                //     println!("result: {:?}", transaction);
+                                // }
+                            } else {
+                                Transaction::new(
+                                    crate::transaction::TransactionType::Resolve,
+                                    1,
+                                    1,
+                                    Some(1.0),
+                                )
+                                .unwrap()
+                            }
                         })
-                        .collect::<Vec<String>>()
+                        .collect::<Vec<Transaction>>()
                 })
             })
             .collect();
-        let mut lines = vec![];
 
+        let mut output = vec![];
         for task in tasks {
-            lines.extend(task.await.unwrap());
+            output.extend(task.await.unwrap());
         }
-        let input = lines.join("\n");
-        println!(
-            "Whitespaces removed {} milliseconds",
-            now.elapsed().as_millis()
-        );
-        now = Instant::now();
+        // let output = lines.join("\n");
+        // input.retain(|c| c != ' ');
+        // println!(
+        //     "Whitespaces removed {} milliseconds",
+        //     now.elapsed().as_millis()
+        // );
+        // now = Instant::now();
 
-        let mut output = Vec::<Transaction>::new();
-        let mut rdr = csv::Reader::from_reader(input.as_bytes());
-
-        for result in rdr.deserialize() {
-            let transaction: Transaction = result?;
-            output.push(transaction);
-        }
+        // let mut output = Vec::<Transaction>::new();
+        // let mut rdr = csv::Reader::from_reader(input.as_bytes());
+        //
+        // for result in rdr.deserialize() {
+        //     let transaction: Transaction = result?;
+        //     output.push(transaction);
+        // }
         println!(
             "Data deserialized {} milliseconds",
             now.elapsed().as_millis()
