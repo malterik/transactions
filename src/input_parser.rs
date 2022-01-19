@@ -24,7 +24,7 @@ impl InputParser {
             .lines()
             .skip(1)
             .map(|l| l.to_string())
-            .chunks(500000)
+            .chunks(100000)
             .into_iter()
             .map(|chunk| chunk.collect())
             .map(|chunk: Vec<String>| {
@@ -116,7 +116,7 @@ mod tests {
         assert!(do_vecs_match(&output, &expected_output));
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_huge_file() {
         let parser = InputParser::new().unwrap();
         let output = parser.parse_transactions("data/huge.csv").await.unwrap();
