@@ -3,7 +3,6 @@ use anyhow::Result;
 use itertools::Itertools;
 use std::{fs::File, io::Read, time::Instant};
 
-
 #[derive(Debug)]
 pub struct InputParser {}
 
@@ -58,6 +57,8 @@ impl InputParser {
 
 #[cfg(test)]
 mod tests {
+    use std::{path::Path, process::Command};
+
     use super::*;
     use crate::transaction::TransactionType;
 
@@ -118,9 +119,18 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_huge_file() {
+        let number_of_entries = 3000000;
+        if !Path::new("data/huge.csv").exists() {
+            println!("huge file does not exist");
+            Command::new("python3")
+                .arg("generate_file.py")
+                .arg(format!("{}", number_of_entries))
+                .output()
+                .expect("Generation of file failed");
+        }
         let parser = InputParser::new().unwrap();
         let output = parser.parse_transactions("data/huge.csv").await.unwrap();
 
-        assert_eq!(output.len(), 3000000);
+        assert_eq!(output.len(), number_of_entries);
     }
 }
