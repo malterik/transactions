@@ -3,6 +3,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use std::{fs::File, io::Read, time::Instant};
 
+
 #[derive(Debug)]
 pub struct InputParser {}
 
@@ -28,32 +29,16 @@ impl InputParser {
             .map(|chunk| chunk.collect())
             .map(|chunk: Vec<String>| {
                 tokio::spawn(async move {
-                    chunk
-                        .into_iter()
-                        .map(|mut line| {
-                            line.retain(|c| c != ' ');
-                            // println!("{}", line);
-                            let mut csv: String = String::from("type,client,tx,amount\n");
-                            if !line.starts_with("type") {
-                                csv.push_str(&line);
-                                let mut rdr = csv::Reader::from_reader(csv.as_bytes());
-                                // can only hold one transaction since it's only one line
-                                rdr.deserialize().next().unwrap().unwrap()
-                                // for result in rdr.deserialize() {
-                                //     let transaction: Transaction = result.unwrap();
-                                //     println!("result: {:?}", transaction);
-                                // }
-                            } else {
-                                Transaction::new(
-                                    crate::transaction::TransactionType::Resolve,
-                                    1,
-                                    1,
-                                    Some(1.0),
-                                )
-                                .unwrap()
-                            }
-                        })
-                        .collect::<Vec<Transaction>>()
+                    let mut chunk_str: String = chunk.join("\n");
+                    chunk_str.retain(|c| c != ' ');
+                    let mut csv: String = String::from("type,client,tx,amount\n");
+                    if chunk_str.starts_with("type") {
+                        panic!("First line was in chunk!!");
+                    }
+                    csv.push_str(&chunk_str);
+                    let mut rdr = csv::Reader::from_reader(csv.as_bytes());
+                    let vec: Vec<Transaction> = rdr.deserialize().map(|t| t.unwrap()).collect();
+                    vec
                 })
             })
             .collect();
@@ -62,21 +47,6 @@ impl InputParser {
         for task in tasks {
             output.extend(task.await.unwrap());
         }
-        // let output = lines.join("\n");
-        // input.retain(|c| c != ' ');
-        // println!(
-        //     "Whitespaces removed {} milliseconds",
-        //     now.elapsed().as_millis()
-        // );
-        // now = Instant::now();
-
-        // let mut output = Vec::<Transaction>::new();
-        // let mut rdr = csv::Reader::from_reader(input.as_bytes());
-        //
-        // for result in rdr.deserialize() {
-        //     let transaction: Transaction = result?;
-        //     output.push(transaction);
-        // }
         println!(
             "Data deserialized {} milliseconds",
             now.elapsed().as_millis()
