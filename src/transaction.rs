@@ -13,10 +13,10 @@ pub enum TransactionType {
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Transaction {
-    r#type: TransactionType,
-    client: u16,
-    tx: u32,
-    amount: Option<f32>,
+    pub r#type: TransactionType,
+    pub client: u16,
+    pub tx: u32,
+    pub amount: Option<f32>,
 }
 
 impl Transaction {
