@@ -1,10 +1,22 @@
 use crate::transaction::Transaction;
 use anyhow::Result;
-use itertools::Itertools;
-use std::{fs::File, io::Read, time::Instant};
+use std::{fs::File, io::BufRead, io::BufReader, time::Instant};
+use tokio::task::JoinHandle;
 
 #[derive(Debug)]
 pub struct InputParser {}
+
+async fn deserialize_transactions(mut chunk: String) -> Vec<Transaction> {
+    chunk.retain(|c| c != ' ');
+    let mut csv: String = String::from("type,client,tx,amount\n");
+    if chunk.starts_with("type") {
+        panic!("First line was in chunk!!");
+    }
+    csv.push_str(&chunk);
+    let mut rdr = csv::Reader::from_reader(csv.as_bytes());
+    let vec: Vec<Transaction> = rdr.deserialize().map(|t| t.unwrap()).collect();
+    vec
+}
 
 impl InputParser {
     pub fn new() -> Result<InputParser> {
@@ -12,45 +24,24 @@ impl InputParser {
     }
 
     pub async fn parse_transactions(self, file: &str) -> Result<Vec<Transaction>> {
-        let mut now = Instant::now();
-        let mut file = File::open(file)?;
+        let file = File::open(file)?;
+        let file = BufReader::new(file);
         let mut input = String::new();
-        file.read_to_string(&mut input)?;
-        println!("Data read {} milliseconds", now.elapsed().as_millis());
-        now = Instant::now();
-
-        let tasks: Vec<_> = input
-            .lines()
-            .skip(1)
-            .map(|l| l.to_string())
-            .chunks(100000)
-            .into_iter()
-            .map(|chunk| chunk.collect())
-            .map(|chunk: Vec<String>| {
-                tokio::spawn(async move {
-                    let mut chunk_str: String = chunk.join("\n");
-                    chunk_str.retain(|c| c != ' ');
-                    let mut csv: String = String::from("type,client,tx,amount\n");
-                    if chunk_str.starts_with("type") {
-                        panic!("First line was in chunk!!");
-                    }
-                    csv.push_str(&chunk_str);
-                    let mut rdr = csv::Reader::from_reader(csv.as_bytes());
-                    let vec: Vec<Transaction> = rdr.deserialize().map(|t| t.unwrap()).collect();
-                    vec
-                })
-            })
-            .collect();
-
+        let mut tasks: Vec<JoinHandle<Vec<Transaction>>> = vec![];
+        for (i, line) in file.lines().enumerate().skip(1) {
+            input.extend(line);
+            input.push('\n');
+            if i % 100000 == 0 {
+                tasks.push(tokio::spawn(deserialize_transactions(input.clone())));
+                input = String::new();
+            }
+        }
+        // deserialize the rest
+        tasks.push(tokio::spawn(deserialize_transactions(input)));
         let mut output = vec![];
         for task in tasks {
             output.extend(task.await.unwrap());
         }
-        println!(
-            "Data deserialized {} milliseconds",
-            now.elapsed().as_millis()
-        );
-
         Ok(output)
     }
 }
