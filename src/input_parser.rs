@@ -1,6 +1,6 @@
 use crate::transaction::Transaction;
 use anyhow::Result;
-use std::{fs::File, io::BufRead, io::BufReader, time::Instant};
+use std::{fs::File, io::BufRead, io::BufReader};
 use tokio::task::JoinHandle;
 
 #[derive(Debug)]
