@@ -28,7 +28,9 @@ impl TransactionEngine {
             match transaction.r#type {
                 TransactionType::Chargeback => println!("Chargeback"),
                 TransactionType::Deposit => handle_deposit(transaction, &mut self.clients),
-                TransactionType::Dispute => println!("Dispute"),
+                TransactionType::Dispute => {
+                    handle_dispute(transaction, &mut self.clients, transactions)
+                }
                 TransactionType::Resolve => println!("Resolve"),
                 TransactionType::Withdrawal => handle_withdrawal(transaction, &mut self.clients),
             }
@@ -62,6 +64,51 @@ fn handle_withdrawal(transaction: &Transaction, clients: &mut HashMap<u16, Clien
     }
 }
 
+fn handle_dispute(
+    transaction: &Transaction,
+    clients: &mut HashMap<u16, Client>,
+    transactions: &Vec<Transaction>,
+) {
+    if let Some(client) = clients.get_mut(&transaction.client) {
+        let transactions_in_dispute: Vec<&Transaction> = transactions
+            .iter()
+            .filter(|t| {
+                t.tx == transaction.tx
+                    && (t.r#type == TransactionType::Withdrawal
+                        || t.r#type == TransactionType::Deposit)
+            })
+            .collect();
+
+        let number_of_transactions = transactions_in_dispute.len();
+        if number_of_transactions > 1 {
+            panic!("Multiple transactions found for dispute!");
+        } else if number_of_transactions == 1 {
+            let transaction_in_dispute = transactions_in_dispute[0];
+
+            if let Some(amount) = transaction_in_dispute.amount {
+                match transaction_in_dispute.r#type {
+                    TransactionType::Deposit => {
+                        client.available -= amount;
+                        client.held += amount;
+                    }
+                    TransactionType::Withdrawal => {
+                        client.available += amount;
+                        client.held -= amount;
+                    }
+                    _ => {
+                        // technically it's nowhere written that dispute, resolve and chargeback actions
+                        // can't be in dispute themselves but I'm not sure if that's really the case
+                        unimplemented!();
+                    }
+                }
+            }
+        }
+        // Ignore the case that the ID does no exist
+    } else {
+        panic!("Client to settle dispute for does not exist!");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,5 +128,23 @@ mod tests {
         let c2 = engine.clients.get(&2).unwrap();
         assert_eq!(c2.total, -1.0f32);
         assert_eq!(c2.available, -1.0f32);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_processing_set3() {
+        let parser = InputParser::new().unwrap();
+        let transactions = parser.parse_transactions("data/set3.csv").await.unwrap();
+
+        let mut engine = TransactionEngine::new().unwrap();
+        engine.process(&transactions);
+        let c1 = engine.clients.get(&1).unwrap();
+        assert_eq!(c1.total, 8f32);
+        assert_eq!(c1.available, 10f32);
+        assert_eq!(c1.held, -2f32);
+
+        let c2 = engine.clients.get(&2).unwrap();
+        assert_eq!(c2.total, 8.0f32);
+        assert_eq!(c2.available, 2.0f32);
+        assert_eq!(c2.held, 6.0f32);
     }
 }
