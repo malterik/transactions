@@ -1,7 +1,7 @@
 # Transaction engine
 
-Execute with `cargo run -- <csv.file>`
-Run tests with `cargo test`
+- Execute with `cargo run -- <csv.file>`
+- Run tests with `cargo test`
 
 ## Assumptions
 - Deposit and withdraw actions are skipped
