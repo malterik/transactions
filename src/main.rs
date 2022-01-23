@@ -24,4 +24,5 @@ async fn main() {
     let mut engine = TransactionEngine::new().unwrap();
     engine.process(&transactions);
     println!("Transactions processed in: {} ms", now.elapsed().as_millis());
+    engine.print_client_list();
 }

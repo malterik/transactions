@@ -1,5 +1,6 @@
 use anyhow::Result;
-use std::collections::HashMap;
+use core::fmt;
+use std::{cmp::Ordering, collections::HashMap};
 
 use crate::transaction::{Transaction, TransactionType};
 
@@ -9,6 +10,16 @@ pub struct Client {
     held: f32,
     total: f32,
     locked: bool,
+}
+
+impl fmt::Display for Client {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{},{},{},{}",
+            self.available, self.held, self.total, self.locked
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -25,7 +36,7 @@ impl TransactionEngine {
         })
     }
 
-    pub fn process(&mut self, transactions: &Vec<Transaction>) {
+    pub fn process(&mut self, transactions: &[Transaction]) {
         for transaction in transactions {
             match transaction.r#type {
                 TransactionType::Chargeback => handle_chargeback(
@@ -47,6 +58,13 @@ impl TransactionEngine {
                 ),
                 TransactionType::Withdrawal => handle_withdrawal(transaction, &mut self.clients),
             }
+        }
+    }
+
+    pub fn print_client_list(&self) {
+        println!("client,available,held,total,locked");
+        for (id, client) in self.clients.iter() {
+            println!("{},{}", id, client);
         }
     }
 }
@@ -84,7 +102,7 @@ fn handle_withdrawal(transaction: &Transaction, clients: &mut HashMap<u16, Clien
 fn handle_dispute(
     transaction: &Transaction,
     clients: &mut HashMap<u16, Client>,
-    transactions: &Vec<Transaction>,
+    transactions: &[Transaction],
     dispute_transactions: &mut Vec<Transaction>,
 ) {
     if let Some(client) = clients.get_mut(&transaction.client) {
@@ -97,32 +115,32 @@ fn handle_dispute(
             })
             .collect();
 
-        let number_of_transactions = transactions_in_dispute.len();
-        if number_of_transactions > 1 {
-            panic!("Multiple transactions found for dispute!");
-        } else if number_of_transactions == 1 {
-            let transaction_in_dispute = transactions_in_dispute[0];
+        match transactions_in_dispute.len().cmp(&1) {
+            Ordering::Greater => panic!("Multiple transactions found for dispute!"),
+            Ordering::Equal => {
+                let transaction_in_dispute = transactions_in_dispute[0];
 
-            if let Some(amount) = transaction_in_dispute.amount {
-                match transaction_in_dispute.r#type {
-                    TransactionType::Deposit => {
-                        client.available -= amount;
-                        client.held += amount;
-                    }
-                    TransactionType::Withdrawal => {
-                        client.available += amount;
-                        client.held -= amount;
-                    }
-                    _ => {
-                        // technically it's nowhere written that dispute, resolve and chargeback actions
-                        // can't be in dispute themselves but I'm not sure if that's really the case
-                        unimplemented!();
+                if let Some(amount) = transaction_in_dispute.amount {
+                    match transaction_in_dispute.r#type {
+                        TransactionType::Deposit => {
+                            client.available -= amount;
+                            client.held += amount;
+                        }
+                        TransactionType::Withdrawal => {
+                            client.available += amount;
+                            client.held -= amount;
+                        }
+                        _ => {
+                            // technically it's nowhere written that dispute, resolve and chargeback actions
+                            // can't be in dispute themselves but I'm not sure if that's really the case
+                            unimplemented!();
+                        }
                     }
                 }
+                dispute_transactions.push(transaction_in_dispute.to_owned());
             }
-            dispute_transactions.push(transaction_in_dispute.to_owned());
+            _ => (), // Ignore the case that the ID does no exist
         }
-        // Ignore the case that the ID does no exist
     } else {
         panic!("Client to settle dispute for does not exist!");
     }
@@ -139,31 +157,31 @@ fn handle_resolve(
             .filter(|t| t.tx == transaction.tx)
             .collect();
 
-        let number_of_transactions = transactions_in_dispute.len();
-        if number_of_transactions > 1 {
-            panic!("Multiple transactions found for resolve!");
-        } else if number_of_transactions == 1 {
-            let transaction_in_dispute = transactions_in_dispute[0];
+        match transactions_in_dispute.len().cmp(&1) {
+            Ordering::Greater => panic!("Multiple transactions found for dispute!"),
+            Ordering::Equal => {
+                let transaction_in_dispute = transactions_in_dispute[0];
 
-            if let Some(amount) = transaction_in_dispute.amount {
-                match transaction_in_dispute.r#type {
-                    TransactionType::Deposit => {
-                        client.available += amount;
-                        client.held -= amount;
+                if let Some(amount) = transaction_in_dispute.amount {
+                    match transaction_in_dispute.r#type {
+                        TransactionType::Deposit => {
+                            client.available += amount;
+                            client.held -= amount;
+                        }
+                        TransactionType::Withdrawal => {
+                            client.available -= amount;
+                            client.held += amount;
+                        }
+                        _ => {
+                            unimplemented!();
+                        }
                     }
-                    TransactionType::Withdrawal => {
-                        client.available -= amount;
-                        client.held += amount;
-                    }
-                    _ => {
-                        unimplemented!();
-                    }
+                } else {
+                    panic!("Transaction to resolve was not in dispute")
                 }
-            } else {
-                panic!("Transaction to resolve was not in dispute")
             }
+            _ => (), //  Ignore the case that the ID does no exist
         }
-        // Ignore the case that the ID does no exist
     } else {
         panic!("Client to resolve transacton for does not exist!");
     }
@@ -180,32 +198,32 @@ fn handle_chargeback(
             .filter(|t| t.tx == transaction.tx)
             .collect();
 
-        let number_of_transactions = transactions_in_dispute.len();
-        if number_of_transactions > 1 {
-            panic!("Multiple transactions found for resolve!");
-        } else if number_of_transactions == 1 {
-            let transaction_in_dispute = transactions_in_dispute[0];
+        match transactions_in_dispute.len().cmp(&1) {
+            Ordering::Greater => panic!("Multiple transactions found for dispute!"),
+            Ordering::Equal => {
+                let transaction_in_dispute = transactions_in_dispute[0];
 
-            if let Some(amount) = transaction_in_dispute.amount {
-                match transaction_in_dispute.r#type {
-                    TransactionType::Deposit => {
-                        client.held -= amount;
-                        client.total -= amount;
+                if let Some(amount) = transaction_in_dispute.amount {
+                    match transaction_in_dispute.r#type {
+                        TransactionType::Deposit => {
+                            client.held -= amount;
+                            client.total -= amount;
+                        }
+                        TransactionType::Withdrawal => {
+                            client.held += amount;
+                            client.total += amount;
+                        }
+                        _ => {
+                            unimplemented!();
+                        }
                     }
-                    TransactionType::Withdrawal => {
-                        client.held += amount;
-                        client.total += amount;
-                    }
-                    _ => {
-                        unimplemented!();
-                    }
+                } else {
+                    panic!("Transaction to resolve was not in dispute")
                 }
-            } else {
-                panic!("Transaction to resolve was not in dispute")
+                client.locked = true;
             }
-            client.locked = true;
+            _ => (), //  Ignore the case that the ID does no exist
         }
-        // Ignore the case that the ID does no exist
     } else {
         panic!("Client to resolve transacton for does not exist!");
     }
