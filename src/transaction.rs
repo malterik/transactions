@@ -1,4 +1,3 @@
-use anyhow::Result;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -19,21 +18,27 @@ pub struct Transaction {
     pub amount: Option<f32>,
 }
 
-impl Transaction {
-   pub fn new(r#type: TransactionType, client: u16, tx: u32, amount: Option<f32>) -> Result<Transaction> {
-        Ok(Transaction {
-            r#type,
-            client,
-            tx,
-            amount,
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::Result;
     use std::{fs::File, io::Read};
+
+    impl Transaction {
+        pub fn new(
+            r#type: TransactionType,
+            client: u16,
+            tx: u32,
+            amount: Option<f32>,
+        ) -> Result<Transaction> {
+            Ok(Transaction {
+                r#type,
+                client,
+                tx,
+                amount,
+            })
+        }
+    }
 
     fn do_vecs_match<T: PartialEq>(a: &Vec<T>, b: &Vec<T>) -> bool {
         //TODO: What happens with NaN?
@@ -75,8 +80,10 @@ mod tests {
         expected_output.push(Transaction::new(TransactionType::Deposit, 1, 1, Some(1.0)).unwrap());
         expected_output.push(Transaction::new(TransactionType::Deposit, 2, 2, Some(2.0)).unwrap());
         expected_output.push(Transaction::new(TransactionType::Deposit, 1, 3, Some(2.0)).unwrap());
-        expected_output.push(Transaction::new(TransactionType::Withdrawal, 1, 4, Some(1.5)).unwrap());
-        expected_output.push(Transaction::new(TransactionType::Withdrawal, 2, 5, Some(3.0)).unwrap());
+        expected_output
+            .push(Transaction::new(TransactionType::Withdrawal, 1, 4, Some(1.5)).unwrap());
+        expected_output
+            .push(Transaction::new(TransactionType::Withdrawal, 2, 5, Some(3.0)).unwrap());
         assert!(do_vecs_match(&output, &expected_output));
     }
 
@@ -96,7 +103,8 @@ mod tests {
 
         let mut expected_output = Vec::<Transaction>::new();
         expected_output.push(Transaction::new(TransactionType::Deposit, 1, 1, Some(1.0)).unwrap());
-        expected_output.push(Transaction::new(TransactionType::Withdrawal, 1, 2, Some(1.0)).unwrap());
+        expected_output
+            .push(Transaction::new(TransactionType::Withdrawal, 1, 2, Some(1.0)).unwrap());
         expected_output.push(Transaction::new(TransactionType::Dispute, 1, 1, None).unwrap());
         expected_output.push(Transaction::new(TransactionType::Resolve, 1, 1, None).unwrap());
         expected_output.push(Transaction::new(TransactionType::Chargeback, 1, 1, None).unwrap());
@@ -120,7 +128,8 @@ mod tests {
 
         let mut expected_output = Vec::<Transaction>::new();
         expected_output.push(Transaction::new(TransactionType::Deposit, 1, 1, Some(1.0)).unwrap());
-        expected_output.push(Transaction::new(TransactionType::Withdrawal, 1, 2, Some(1.0)).unwrap());
+        expected_output
+            .push(Transaction::new(TransactionType::Withdrawal, 1, 2, Some(1.0)).unwrap());
         expected_output.push(Transaction::new(TransactionType::Dispute, 1, 1, None).unwrap());
         expected_output.push(Transaction::new(TransactionType::Resolve, 1, 1, None).unwrap());
         expected_output.push(Transaction::new(TransactionType::Chargeback, 1, 1, None).unwrap());
