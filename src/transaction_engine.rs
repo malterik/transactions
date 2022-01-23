@@ -14,12 +14,14 @@ pub struct Client {
 #[derive(Debug)]
 pub struct TransactionEngine {
     pub clients: HashMap<u16, Client>,
+    pub dispute_transactions: Vec<Transaction>,
 }
 
 impl TransactionEngine {
     pub fn new() -> Result<TransactionEngine> {
         Ok(TransactionEngine {
             clients: HashMap::new(),
+            dispute_transactions: Vec::new(),
         })
     }
 
@@ -29,7 +31,7 @@ impl TransactionEngine {
                 TransactionType::Chargeback => println!("Chargeback"),
                 TransactionType::Deposit => handle_deposit(transaction, &mut self.clients),
                 TransactionType::Dispute => {
-                    handle_dispute(transaction, &mut self.clients, transactions)
+                    handle_dispute(transaction, &mut self.clients, transactions, &mut self.dispute_transactions)
                 }
                 TransactionType::Resolve => println!("Resolve"),
                 TransactionType::Withdrawal => handle_withdrawal(transaction, &mut self.clients),
@@ -68,6 +70,7 @@ fn handle_dispute(
     transaction: &Transaction,
     clients: &mut HashMap<u16, Client>,
     transactions: &Vec<Transaction>,
+    dispute_transactions: &mut Vec<Transaction>,
 ) {
     if let Some(client) = clients.get_mut(&transaction.client) {
         let transactions_in_dispute: Vec<&Transaction> = transactions
@@ -102,6 +105,7 @@ fn handle_dispute(
                     }
                 }
             }
+            dispute_transactions.push(transaction_in_dispute.to_owned());
         }
         // Ignore the case that the ID does no exist
     } else {
